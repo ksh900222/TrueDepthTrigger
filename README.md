@@ -1,23 +1,16 @@
 # TrueDepthTrigger
 
-TrueDepth 거리 측정 + BLE True 전송 iOS App Playground (`.swiftpm`).
+TrueDepth 거리 측정 + BLE True 전송 iOS App Playground.
 
-검출 범위 하한/상한 슬라이더는 서로 독립으로 움직이고, 하한이 상한을 넘을 수 없습니다.
+## 파일 하나 받기
 
-## 열는 방법
+이 링크가 **하나의 파일**입니다.
 
-1. GitHub 오른쪽 **Code → Download ZIP**
-2. 압축 풀기
-3. 폴더 이름을 `TrueDepthTrigger.swiftpm` 으로 바꾸기
-4. Xcode 또는 Swift Playgrounds에서 그 폴더 열기
-5. Face ID iPhone에서 실행 (TrueDepth 필요)
+- [TrueDepthTrigger.swiftpm.zip](https://github.com/ksh900222/TrueDepthTrigger/releases/download/v1.0/TrueDepthTrigger.swiftpm.zip)
 
-클론한 경우:
+1. 받아서 압축 풀기
+2. `TrueDepthTrigger.swiftpm` 이 하나 나옴 (맥/아이패드에서는 파일처럼 보임)
+3. Xcode 또는 Swift Playgrounds에서 열기
+4. Face ID iPhone에서 실행 (TrueDepth 필요)
 
-```bash
-git clone https://github.com/ksh900222/TrueDepthTrigger.git
-mv TrueDepthTrigger TrueDepthTrigger.swiftpm
-open TrueDepthTrigger.swiftpm
-```
-
-카메라/블루투스 권한은 `Package.swift`에 들어 있습니다.
+`.swiftpm`은 앱 패키지라 웹에서는 zip으로만 보낼 수 있습니다. 압축을 풀면 그게 파일입니다.
