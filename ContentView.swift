@@ -7,22 +7,40 @@ import MetalKit
 struct ContentView: View {
     @StateObject private var app = TriggerApp()
 
-    private var minLimitBinding: Binding<Double> {
+    private var displayMinBinding: Binding<Double> {
         Binding(
-            get: { app.minLimit },
+            get: { app.displayMin },
             set: { newValue in
-                app.minLimit = min(max(0.15, newValue), app.maxLimit)
+                app.displayMin = min(max(0.15, newValue), app.displayMax)
                 app.pushUniforms()
             }
         )
     }
 
-    private var maxLimitBinding: Binding<Double> {
+    private var displayMaxBinding: Binding<Double> {
         Binding(
-            get: { app.maxLimit },
+            get: { app.displayMax },
             set: { newValue in
-                app.maxLimit = max(min(2.00, newValue), app.minLimit)
+                app.displayMax = max(min(2.00, newValue), app.displayMin)
                 app.pushUniforms()
+            }
+        )
+    }
+
+    private var detectMinBinding: Binding<Double> {
+        Binding(
+            get: { app.detectMin },
+            set: { newValue in
+                app.detectMin = min(max(0.15, newValue), app.detectMax)
+            }
+        )
+    }
+
+    private var detectMaxBinding: Binding<Double> {
+        Binding(
+            get: { app.detectMax },
+            set: { newValue in
+                app.detectMax = max(min(2.00, newValue), app.detectMin)
             }
         )
     }
@@ -52,11 +70,13 @@ struct ContentView: View {
                         Text(app.depthReady
                              ? String(format: "최대  %.2f m", app.maxMeters)
                              : " ")
-                        Text(app.inRange ? "범위 안 → True 전송" : "범위 밖")
+                        Text(app.inRange ? "검출 범위 안 → True 전송" : "검출 범위 밖")
                             .foregroundStyle(app.inRange ? .green : .secondary)
                         Text(app.ble.isReadyToSend ? "전송 준비됨" : "localhost.localdomain 대기")
                             .font(.caption)
-                        Text(String(format: "적용 범위  %.2f ~ %.2f m", app.minLimit, app.maxLimit))
+                        Text(String(format: "표시  %.2f ~ %.2f m", app.displayMin, app.displayMax))
+                            .font(.caption)
+                        Text(String(format: "검출  %.2f ~ %.2f m", app.detectMin, app.detectMax))
                             .font(.caption)
                     }
                     .padding(12)
@@ -75,20 +95,55 @@ struct ContentView: View {
                 Spacer()
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("검출 범위")
+                    Text("표시 범위")
                         .font(.headline)
 
-                    Stepper(value: minLimitBinding, in: 0.15...2.00, step: 0.01) {
-                        Text(String(format: "하한  %.2f m", app.minLimit))
+                    Stepper(value: displayMinBinding, in: 0.15...2.00, step: 0.01) {
+                        Text(String(format: "하한  %.2f m", app.displayMin))
                     }
 
-                    Slider(value: minLimitBinding, in: 0.15...2.00, step: 0.01)
+                    Slider(value: displayMinBinding, in: 0.15...2.00, step: 0.01)
 
-                    Stepper(value: maxLimitBinding, in: 0.15...2.00, step: 0.01) {
-                        Text(String(format: "상한  %.2f m", app.maxLimit))
+                    Stepper(value: displayMaxBinding, in: 0.15...2.00, step: 0.01) {
+                        Text(String(format: "상한  %.2f m", app.displayMax))
                     }
 
-                    Slider(value: maxLimitBinding, in: 0.15...2.00, step: 0.01)
+                    Slider(value: displayMaxBinding, in: 0.15...2.00, step: 0.01)
+
+                    Divider()
+
+                    HStack {
+                        Text("검출 범위")
+                            .font(.headline)
+                        Spacer()
+                        Button(app.isEditingDetect ? "완료" : "설정") {
+                            app.isEditingDetect.toggle()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(app.isEditingDetect ? .orange : .blue)
+                    }
+
+                    if app.isEditingDetect {
+                        Text("이 범위 안에 들어오면 True를 보냅니다.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Stepper(value: detectMinBinding, in: 0.15...2.00, step: 0.01) {
+                            Text(String(format: "하한  %.2f m", app.detectMin))
+                        }
+
+                        Slider(value: detectMinBinding, in: 0.15...2.00, step: 0.01)
+
+                        Stepper(value: detectMaxBinding, in: 0.15...2.00, step: 0.01) {
+                            Text(String(format: "상한  %.2f m", app.detectMax))
+                        }
+
+                        Slider(value: detectMaxBinding, in: 0.15...2.00, step: 0.01)
+                    } else {
+                        Text(String(format: "%.2f ~ %.2f m", app.detectMin, app.detectMax))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
 
                     Divider()
 
@@ -169,8 +224,11 @@ final class TriggerApp: NSObject, ObservableObject {
     @Published var depthReady = false
     @Published var inRange = false
     @Published var isRunning = false
-    @Published var minLimit: Double = 0.25
-    @Published var maxLimit: Double = 0.80
+    @Published var displayMin: Double = 0.25
+    @Published var displayMax: Double = 0.80
+    @Published var detectMin: Double = 0.25
+    @Published var detectMax: Double = 0.80
+    @Published var isEditingDetect = false
     @Published var opacity: Float = 0.85
     @Published var rotation: Int = 0
 
@@ -180,12 +238,14 @@ final class TriggerApp: NSObject, ObservableObject {
     private var lastText = Date.distantPast
     private var configured = false
 
-    var rangeStart: Float { Float(min(minLimit, maxLimit)) }
-    var rangeEnd: Float { Float(max(minLimit, maxLimit)) }
+    var displayStart: Float { Float(min(displayMin, displayMax)) }
+    var displayEnd: Float { Float(max(displayMin, displayMax)) }
+    var detectStart: Float { Float(min(detectMin, detectMax)) }
+    var detectEnd: Float { Float(max(detectMin, detectMax)) }
 
     func pushUniforms() {
-        renderer.nearLimit = rangeStart
-        renderer.farLimit = rangeEnd
+        renderer.nearLimit = displayStart
+        renderer.farLimit = displayEnd
         renderer.opacity = opacity
         renderer.rotation = Int32(rotation)
     }
@@ -297,8 +357,8 @@ extension TriggerApp: AVCaptureDepthDataOutputDelegate {
         let map = depthData.converting(toDepthDataType: kCVPixelFormatType_DepthFloat32).depthDataMap
         renderer.updateDepth(map)
 
-        let lo = rangeStart
-        let hi = rangeEnd
+        let lo = detectStart
+        let hi = detectEnd
         guard let range = minMaxDepth(map) else { return }
         let inside = range.min >= lo && range.min <= hi
         let now = Date()
